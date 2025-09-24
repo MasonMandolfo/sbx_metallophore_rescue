@@ -1,65 +1,130 @@
+###############################################################################
+# sbx_metallophore_rescue.smk
+# Sunbeam extension for metallophore BGC rescue
+###############################################################################
+
+# ---------------------------------------------------------------------------
+# Extension metadata and logging
+# ---------------------------------------------------------------------------
 try:
-    SBX_TEMPLATE_VERSION = get_ext_version("sbx_metallophore_rescue")
+    SBX_METALLOPHORE_RESCUE_VERSION = get_ext_version("sbx_metallophore_rescue")
 except NameError:
-    # For backwards compatibility with older versions of Sunbeam
-    SBX_TEMPLATE_VERSION = "0.0.0"
+    SBX_METALLOPHORE_RESCUE_VERSION = "0.0.1"
 
 try:
     logger = get_extension_logger("sbx_metallophore_rescue")
 except NameError:
-    # For backwards compatibility with older versions of Sunbeam
     import logging
-
     logger = logging.getLogger("sunbeam.pipeline.extensions.sbx_metallophore_rescue")
 
+logger.info("Loading sbx_metallophore_rescue extension...")
+logger.info(f"Using version {SBX_METALLOPHORE_RESCUE_VERSION}")
 
-logger.info("Doing some extension specific setup...")
-logger.info(f"Using sbx_metallophore_rescue version {SBX_TEMPLATE_VERSION}.")
-logger.error("Don't worry, this isn't a real error.")
+# ---------------------------------------------------------------------------
+# Local rules
+# ---------------------------------------------------------------------------
+localrules: all_metallophores
 
-
-localrules:
-    all_template,
-
-
-rule all_template:
+# ---------------------------------------------------------------------------
+# Rule: all_metallophores (pipeline target)
+# ---------------------------------------------------------------------------
+rule all_metallophores:
+    """
+    Top-level target for metallophore BGC rescue workflow.
+    """
     input:
-        QC_FP / "mush" / "big_file.txt",
+        expand("results/metallophore_rescue/{sample}.uhgg.filtered.tsv", sample=Samples)
 
-
-rule example_rule:
-    """Takes in cleaned .fastq.gz and mushes them all together into a file"""
+# ---------------------------------------------------------------------------
+# Rule: align_uhgg
+# ---------------------------------------------------------------------------
+rule align_uhgg:
+    """
+    Align assembled contigs against UHGG reference with minimap2.
+    Produces PAF output for downstream parsing.
+    """
     input:
-        expand(QC_FP / "cleaned" / "{sample}_{rp}.fastq.gz", sample=Samples, rp=Pairs),
+        contigs="sunbeam_output/assembly/{sample}.fasta",
+        db=Cfg["sbx_metallophore_rescue"]["references"]["uhgg_mmi"]
     output:
-        QC_FP / "mush" / "big_file1.txt",
+        paf="results/metallophore_rescue/{sample}.uhgg.paf"
     log:
-        LOG_FP / "example_rule.log",
+        LOG_FP / "align_uhgg_{sample}.log"
     benchmark:
-        BENCHMARK_FP / "example_rule.tsv"
-    params:
-        opts=Cfg["sbx_metallophore_rescue"]["example_rule_options"],
+        BENCHMARK_FP / "align_uhgg_{sample}.tsv"
+    threads: 8
     conda:
-        "envs/sbx_metallophore_rescue_env.yml"
-    container:
-        f"docker://sunbeamlabs/sbx_metallophore_rescue:{SBX_TEMPLATE_VERSION}"
+        "envs/sbx_metallophore_env.yml"
     shell:
-        "(cat {params.opts} {input} > {output}) > {log} 2>&1"
+        """
+        minimap2 -x asm20 -t {threads} {input.db} {input.contigs} \
+          > {output.paf} 2> {log}
+        """
 
-
-rule example_with_script:
-    """Take in big_file1 and then ignore it and write the results of `samtools --help` to the output using a python script"""
+# ---------------------------------------------------------------------------
+# Rule: parse_alignments
+# ---------------------------------------------------------------------------
+rule parse_alignments:
+    """
+    Parse PAF output from minimap2 to extract percent identity and coverage.
+    """
     input:
-        QC_FP / "mush" / "big_file1.txt",
+        "results/metallophore_rescue/{sample}.uhgg.paf"
     output:
-        QC_FP / "mush" / "big_file.txt",
+        "results/metallophore_rescue/{sample}.uhgg.parsed.tsv"
     log:
-        LOG_FP / "example_with_script.log",
-    benchmark:
-        BENCHMARK_FP / "example_with_script.tsv"
+        LOG_FP / "parse_alignments_{sample}.log"
     conda:
-        "envs/sbx_metallophore_rescue_env.yml"
-    container:
-        f"docker://sunbeamlabs/sbx_metallophore_rescue:{SBX_TEMPLATE_VERSION}"
+        "envs/sbx_metallophore_env.yml"
     script:
-        "scripts/example_with_script.py"
+        "scripts/parse_paf.py"
+
+# ---------------------------------------------------------------------------
+# Rule: filter_alignments
+# ---------------------------------------------------------------------------
+rule filter_alignments:
+    """
+    Filter parsed alignments by identity and query coverage thresholds.
+    """
+    input:
+        "results/metallophore_rescue/{sample}.uhgg.parsed.tsv"
+    output:
+        "results/metallophore_rescue/{sample}.uhgg.filtered.tsv"
+    log:
+        LOG_FP / "filter_alignments_{sample}.log"
+    params:
+        pid_min=Cfg["sbx_metallophore_rescue"]["alignment"]["pid_min"],
+        qcov_min=Cfg["sbx_metallophore_rescue"]["alignment"]["qcov_min"]
+    conda:
+        "envs/sbx_metallophore_env.yml"
+    shell:
+        """
+        awk -v pid={params.pid_min} -v qcov={params.qcov_min} \
+          '$2 >= pid && $3 >= qcov {{print}}' {input} > {output} 2> {log}
+        """
+
+# ---------------------------------------------------------------------------
+# Rule: run_antismash (placeholder)
+# ---------------------------------------------------------------------------
+rule run_antismash:
+    """
+    Run antiSMASH on candidate genomes/regions identified by UHGG rescue.
+    Placeholder rule — to be expanded.
+    """
+    input:
+        "results/metallophore_rescue/{sample}.uhgg.filtered.tsv"
+    output:
+        directory("results/metallophore_rescue/antismash/{sample}")
+    log:
+        LOG_FP / "antismash_{sample}.log"
+    conda:
+        "envs/sbx_metallophore_env.yml"
+    shell:
+        """
+        echo "antiSMASH would run here using the rescued genome regions." > {log}
+        mkdir -p {output}
+        """
+
+###############################################################################
+# End of sbx_metallophore_rescue.smk
+###############################################################################
