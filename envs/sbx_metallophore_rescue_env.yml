@@ -1,4 +1,4 @@
-name: sbx_template
+name: sbx_metallophore_rescue
 channels:
   - conda-forge
   - bioconda
