@@ -1,6 +1,12 @@
+<<<<<<< HEAD:envs/sbx_metallophore_rescue_env.yml
 name: sbx_metallophore_rescue
+=======
+name: sbx_metallophore_env
+>>>>>>> 62d09d9 (commit):envs/sbx_template_env.yml
 channels:
-  - conda-forge
   - bioconda
+  - conda-forge
 dependencies:
-  - samtools
+  - blast
+  - python=3.11
+
