@@ -1,6 +1,4 @@
-This is a template to use to extend the [Sunbeam pipeline](https://github.com/sunbeam-labs/sunbeam). Check out the [Sunbeam extensions dev docs](https://sunbeam.readthedocs.io/en/stable/dev_extensions.html) for more info.
 
-(You can delete everything above this line)
 -----------------------------------------------------------------
 
 <img src="https://github.com/sunbeam-labs/sunbeam/blob/main/docs/images/sunbeam_logo.gif" width=120, height=120 align="left" />
