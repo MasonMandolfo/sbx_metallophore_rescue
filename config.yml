@@ -1,11 +1,10 @@
-# List of sample IDs (these should match the names Sunbeam uses for assemblies)
-samples:
-  - sample1
-  - sample2
 
-# Reference databases
 references:
-  agora: /path/to/agora2/blastdb/agora2
-  ncbi: /path/to/ncbi/refseq/blastdb/refseq
-  mibig: /path/to/mibig/blastdb/mibig
+  mibig: references/mibig.mmi
+  uhgg_mmi: references/UHGG_rep.mmi
+
+alignment:
+  pid_min: 95
+  qcov_min: 70
+
 
