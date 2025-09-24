@@ -1,7 +1,3 @@
-<<<<<<< HEAD
-sbx_metallophore_rescue:
-  example_rule_options: /path/to/example_rule_thingy
-=======
 # List of sample IDs (these should match the names Sunbeam uses for assemblies)
 samples:
   - sample1
@@ -13,4 +9,3 @@ references:
   ncbi: /path/to/ncbi/refseq/blastdb/refseq
   mibig: /path/to/mibig/blastdb/mibig
 
->>>>>>> 62d09d9 (commit)
