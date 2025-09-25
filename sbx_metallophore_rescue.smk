@@ -45,6 +45,24 @@ rule run_antismash_assembly:
         directory("results/antismash/{sample}")
     log:
         "logs/run_antismash_assembly_{sample}.log"
+        threads: 40
+    params:
+        datapath=Cfg["sbx_metallophore_rescue"]["antismash_datapath"]
+    container:
+        "docker://antismash/stanalone:8.0.2"
+    shell:
+        """
+        antismash \
+          --databases {params.datapath} \
+          --genefinding-tool prodigal-m \
+          --output-dir {output} \
+          --output-basename {wildcards.sample} \
+          --taxon bacteria \
+          -c {threads} \
+          --cb-knownclusters --cc-mibig --tfbs --fimo --no-enable-genefunctions \
+          {input.assembly} \
+          > {log} 2>&1
+        """
 
 # 2. Parse antiSMASH results
 rule parse_antismash_assembly:
