@@ -58,7 +58,7 @@ rule parse_antismash_assembly:
 # 3. Run FeGenie (optional branch)
 rule fegenie_scan:
     input:
-        assembly="sunbeam_output/assembly/megahit/{sample}/final.contigs.fa"
+        assembly=ASSEMBLY_FP / "megahit" / "{sample}_asm" / "final.contigs.fa",
     output:
         "results/metallophore_rescue/{sample}.fegenie.tsv"
     log:
