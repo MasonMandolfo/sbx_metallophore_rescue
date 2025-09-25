@@ -45,7 +45,7 @@ rule run_antismash_assembly:
         directory("results/antismash/{sample}")
     log:
         "logs/run_antismash_assembly_{sample}.log"
-        threads: 40
+    threads: 40
     params:
         datapath=Cfg["sbx_metallophore_rescue"]["antismash_datapath"]
     container:
