@@ -29,7 +29,7 @@ localrules: all_metallophores
 # Rule: all_metallophores (pipeline target)
 # ---------------------------------------------------------------------------
 rule all_metallophores:
-input:
+    input:
         expand("results/metallophore_rescue/{sample}.validated.tsv", sample=Samples)
 
 
