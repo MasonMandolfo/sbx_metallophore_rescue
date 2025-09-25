@@ -44,7 +44,7 @@ rule align_uhgg:
     Produces PAF output for downstream parsing.
     """
     input:
-        contigs="sunbeam_output/assembly/{sample}.fasta",
+        contigs="sunbeam_output/assembly/contigs/{sample}.fasta",
         db=Cfg["sbx_metallophore_rescue"]["references"]["uhgg_mmi"]
     output:
         paf="results/metallophore_rescue/{sample}.uhgg.paf"
