@@ -40,7 +40,7 @@ rule all_metallophores:
 # 1. Run antiSMASH on assemblies
 rule run_antismash_assembly:
     input:
-        assembly="sunbeam_output/assembly/megahit/{sample}/final.contigs.fa"
+        assembly="sunbeam_output/assembly/megahit/{sample}_asm/final.contigs.fa"
     output:
         directory("results/antismash/{sample}")
     log:
