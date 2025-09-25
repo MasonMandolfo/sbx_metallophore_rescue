@@ -38,7 +38,7 @@ rule all_metallophores:
 
 rule link_assembly_contigs:
     input:
-        megahit=ASSEMBLY_FP / "megahit" / "{sample}" / "final.contigs.fa"
+        megahit=ASSEMBLY_FP / "megahit" / "{sample}_asm" / "final.contigs.fa"
     output:
         ASSEMBLY_FP / "{sample}.fasta"
     log:
