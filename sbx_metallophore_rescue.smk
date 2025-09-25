@@ -35,6 +35,23 @@ rule all_metallophores:
     input:
         expand("results/metallophore_rescue/{sample}.uhgg.filtered.tsv", sample=Samples)
 
+
+rule link_assembly_contigs:
+    input:
+        megahit=ASSEMBLY_FP / "megahit" / "{sample}" / "final.contigs.fa"
+    output:
+        ASSEMBLY_FP / "{sample}.fasta"
+    log:
+        LOG_FP / "link_contigs_{sample}.log"
+    conda:
+        "envs/sbx_metallophore_env.yml"
+    shell:
+        r"""
+        mkdir -p "$(dirname {output})"
+        ln -sf {input.megahit} {output}
+        """
+
+
 # ---------------------------------------------------------------------------
 # Rule: align_uhgg
 # ---------------------------------------------------------------------------
