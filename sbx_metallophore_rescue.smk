@@ -47,9 +47,9 @@ rule run_antismash_assembly:
         "logs/run_antismash_assembly_{sample}.log"
     threads: 40
     params:
-        datapath=Cfg["sbx_metallophore_rescue"]["antismash_datapath"]
-    container:
-        "docker://antismash/stanalone:8.0.2"
+        datapath=Cfg["sbx_metallophore_rescue"]["antismash"]["db"]
+    conda:
+        "envs/antismash.yml"
     shell:
         """
         antismash \

@@ -1,0 +1,25 @@
+name: antismash8
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.11
+  - pip
+  # core dependencies antiSMASH expects to find
+  - hmmer
+  - diamond
+  - prodigal
+  - fasttree
+  - blast
+  # extra build tools (needed for Rust-based wheels like nrpys)
+  - rust
+  - maturin
+  - setuptools
+  - wheel
+  - gcc  # ensures a proper linker
+  - make
+  - pkg-config
+  - zlib
+  # now install antiSMASH from PyPI
+  - pip:
+      - antismash==8.0.4

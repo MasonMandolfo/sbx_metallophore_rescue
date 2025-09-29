@@ -7,4 +7,6 @@ alignment:
   pid_min: 95
   qcov_min: 70
 
+antismash:
+  db: /path/to/antismashdb
 
