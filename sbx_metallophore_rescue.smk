@@ -78,7 +78,7 @@ rule parse_antismash_discovery:
     log:
         "logs/parse_antismash_discovery_{sample}.log"
     conda:
-        "envs/python.yml"
+        "envs/sbx_metallophore.yml"
     shell:
         "python {CFG_DIR}/scripts/antismash2csv.py -o {output} {input} > {log} 2>&1"
 
@@ -119,7 +119,7 @@ rule triage_candidates:
     log:
         "logs/triage_candidates_{sample}.log"
     conda:
-        "envs/python.yml"
+        "envs/sbx_metallophore.yml"
     shell:
         "python {CFG_DIR}/scripts/triage.py --antismash {input.antismash} --fegenie {input.fegenie} "
         "--out-fasta {output.fasta} --out-tsv {output.metadata} > {log} 2>&1"
@@ -166,7 +166,7 @@ rule fetch_reference_sequences:
     log:
         "logs/fetch_reference_sequences_{sample}.log"
     conda:
-        "envs/python.yml"
+        "envs/sbx_metallophore.yml"
     shell:
         "python {CFG_DIR}/scripts/fetch_reference_sequences.py --input {input} --out {output} > {log} 2>&1"
 
@@ -231,7 +231,7 @@ rule integrate_results:
     log:
         "logs/integrate_results_{sample}.log"
     conda:
-        "envs/python.yml"
+        "envs/sbx_metallophore.yml"
     shell:
         r"""
         python {CFG_DIR}/scripts/integrate_confirmations.py \

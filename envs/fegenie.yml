@@ -1,0 +1,10 @@
+name: fegenie_env
+channels:
+  - bioconda
+  - conda-forge
+dependencies:
+  - python=3.11
+  - fegenie
+  - hmmer
+  - blast
+  - pandas

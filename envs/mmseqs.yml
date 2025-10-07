@@ -1,0 +1,10 @@
+name: mmseqs_env
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  - mmseqs2
+  - minimap2
+  - skani
+  - mash

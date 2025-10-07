@@ -1,4 +1,4 @@
-name: antismash8
+name: antismash_env
 channels:
   - conda-forge
   - bioconda

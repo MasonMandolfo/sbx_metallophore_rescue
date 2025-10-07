@@ -1,12 +1,11 @@
-
-references:
-  mibig: references/mibig.mmi
-  uhgg_mmi: references/UHGG_rep.mmi
-
-alignment:
-  pid_min: 95
-  qcov_min: 70
-
-antismash:
-  db: /path/to/antismashdb
-
+sbx_metallophore_rescue:
+  antismash:
+    db: /work/dsamuelson/databases/antismash_db
+  references:
+    refseq: /work/dsamuelson/databases/refseq_complete.fna
+    gtdb: /work/dsamuelson/databases/gtdb_reps.fna
+  thresholds:
+    min_align_frac: 0.5
+  fegenie:
+    discovery_stringency: low
+    confirm_stringency: medium

@@ -2,7 +2,17 @@ name: sbx_metallophore_env
 channels:
   - bioconda
   - conda-forge
+  - defaults
 dependencies:
-  - blast
   - python=3.11
-
+  - pandas
+  - biopython
+  - numpy
+  - requests
+  - minimap2
+  - skani
+  - blast
+  - pip
+  - pip:
+      - beautifulsoup4
+      - lxml
