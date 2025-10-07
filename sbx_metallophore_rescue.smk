@@ -4,12 +4,12 @@
 ###############################################################################
 
 # ---------------------------------------------------------------------------
-# Extension metadata and logging
+# Metadata & Logging
 # ---------------------------------------------------------------------------
 try:
     SBX_METALLOPHORE_RESCUE_VERSION = get_ext_version("sbx_metallophore_rescue")
 except NameError:
-    SBX_METALLOPHORE_RESCUE_VERSION = "0.0.1"
+    SBX_METALLOPHORE_RESCUE_VERSION = "0.1.0"
 
 try:
     logger = get_extension_logger("sbx_metallophore_rescue")
@@ -17,117 +17,231 @@ except NameError:
     import logging
     logger = logging.getLogger("sunbeam.pipeline.extensions.sbx_metallophore_rescue")
 
-logger.info("Loading sbx_metallophore_rescue extension...")
-logger.info(f"Using version {SBX_METALLOPHORE_RESCUE_VERSION}")
+logger.info(f"Loading sbx_metallophore_rescue v{SBX_METALLOPHORE_RESCUE_VERSION}")
 
 # ---------------------------------------------------------------------------
-# Local rules
+# Local Rules
 # ---------------------------------------------------------------------------
 localrules: all_metallophores
 
 # ---------------------------------------------------------------------------
-# Rule: all_metallophores (pipeline target)
+# Final Target
 # ---------------------------------------------------------------------------
 rule all_metallophores:
+    """Final output: validated metallophore BGC calls per sample"""
     input:
-        expand("results/metallophore_rescue/{sample}.validated.tsv", sample=Samples)
-
+        expand("results/metallophore_rescue/{sample}.metallophore_calls.tsv", sample=Samples)
 
 ###############################################################################
-# Rules
+# PIPELINE STRUCTURE
+###############################################################################
+# Phase 1: Lenient Discovery
+# Phase 2: Rescue by Best Reference (taxonomic match)
+# Phase 3: Confirmation/Reannotation
 ###############################################################################
 
-# 1. Run antiSMASH on assemblies
-rule run_antismash_assembly:
+# ---------------------------------------------------------------------------
+# 1️⃣ Run antiSMASH (lenient discovery)
+# ---------------------------------------------------------------------------
+rule antismash_discovery:
     input:
-        assembly=ASSEMBLY_FP / "megahit" / "{sample}_asm" / "final.contigs.fa",
+        assembly = ASSEMBLY_FP / "megahit" / "{sample}_asm" / "final.contigs.fa"
     output:
-        directory("results/antismash/{sample}")
+        directory("results/metallophore_rescue/antismash_discovery/{sample}")
     log:
-        "logs/run_antismash_assembly_{sample}.log"
-    threads: 40
+        "logs/antismash_discovery_{sample}.log"
+    threads: 32
     params:
-        datapath=Cfg["sbx_metallophore_rescue"]["antismash"]["db"]
+        db = Cfg["sbx_metallophore_rescue"]["antismash"]["db"]
     conda:
         "envs/antismash.yml"
     shell:
-        """
+        r"""
         antismash \
-          --databases {params.datapath} \
-          --genefinding-tool prodigal-m \
-          --output-dir {output} \
-          --output-basename {wildcards.sample} \
+          --databases {params.db} \
           --taxon bacteria \
-          -c {threads} \
+          --genefinding-tool prodigal-m \
           --cb-knownclusters --cc-mibig --tfbs --fimo --no-enable-genefunctions \
-          {input.assembly} \
+          --clusterhmmer --asf --minimal --fullhmmer \
+          -c {threads} \
+          {input.assembly} > {log} 2>&1
+        """
+
+# ---------------------------------------------------------------------------
+# 2️⃣ Parse antiSMASH discovery results
+# ---------------------------------------------------------------------------
+rule parse_antismash_discovery:
+    input:
+        "results/metallophore_rescue/antismash_discovery/{sample}"
+    output:
+        "results/metallophore_rescue/{sample}.antismash_discovery.tsv"
+    log:
+        "logs/parse_antismash_discovery_{sample}.log"
+    conda:
+        "envs/python.yml"
+    shell:
+        "python {CFG_DIR}/scripts/antismash2csv.py -o {output} {input} > {log} 2>&1"
+
+# ---------------------------------------------------------------------------
+# 3️⃣ Run FeGenie (low stringency)
+# ---------------------------------------------------------------------------
+rule fegenie_discovery:
+    input:
+        assembly = ASSEMBLY_FP / "megahit" / "{sample}_asm" / "final.contigs.fa"
+    output:
+        "results/metallophore_rescue/{sample}.fegenie_discovery.tsv"
+    log:
+        "logs/fegenie_discovery_{sample}.log"
+    conda:
+        "envs/fegenie.yml"
+    params:
+        stringency = "low"
+    shell:
+        r"""
+        FeGenie.py -bin_dir $(dirname {input.assembly}) \
+                   -bin_ext fa \
+                   -out results/metallophore_rescue/fegenie_{wildcards.sample} \
+                   -stringent {params.stringency} \
+                   > {log} 2>&1
+        mv results/metallophore_rescue/fegenie_{wildcards.sample}/FeGenie_results_summary.txt {output}
+        """
+
+# ---------------------------------------------------------------------------
+# 4️⃣ Identify candidate contigs (triage step)
+# ---------------------------------------------------------------------------
+rule triage_candidates:
+    input:
+        antismash = "results/metallophore_rescue/{sample}.antismash_discovery.tsv",
+        fegenie   = "results/metallophore_rescue/{sample}.fegenie_discovery.tsv"
+    output:
+        fasta     = "results/metallophore_rescue/{sample}.candidates.fna",
+        metadata  = "results/metallophore_rescue/{sample}.candidates.tsv"
+    log:
+        "logs/triage_candidates_{sample}.log"
+    conda:
+        "envs/python.yml"
+    shell:
+        "python {CFG_DIR}/scripts/triage.py --antismash {input.antismash} --fegenie {input.fegenie} "
+        "--out-fasta {output.fasta} --out-tsv {output.metadata} > {log} 2>&1"
+
+# ---------------------------------------------------------------------------
+# 5️⃣ Rescue by Best Reference
+#     (Prefer bin-based ANI search, else direct nucleotide alignment)
+# ---------------------------------------------------------------------------
+rule rescue_by_reference:
+    input:
+        contigs = "results/metallophore_rescue/{sample}.candidates.fna",
+        bin_map = BINNING_FP / "contig_to_bin.tsv",
+        ref_db  = Cfg["sbx_metallophore_rescue"]["references"]["refseq"]
+    output:
+        besthits = "results/metallophore_rescue/{sample}.best_reference.tsv",
+        align    = "results/metallophore_rescue/{sample}.best_reference.paf"
+    log:
+        "logs/rescue_by_reference_{sample}.log"
+    threads: 16
+    params:
+        min_align_frac = 0.5
+    conda:
+        "envs/mmseqs.yml"
+    shell:
+        r"""
+        python {CFG_DIR}/scripts/find_best_reference.py \
+          --contigs {input.contigs} \
+          --bin-map {input.bin_map} \
+          --ref-db {input.ref_db} \
+          --out-best {output.besthits} \
+          --out-align {output.align} \
+          --min-align-frac {params.min_align_frac} \
           > {log} 2>&1
         """
 
-# 2. Parse antiSMASH results
-rule parse_antismash_assembly:
+# ---------------------------------------------------------------------------
+# 6️⃣ Fetch rescued references for confirmation
+# ---------------------------------------------------------------------------
+rule fetch_reference_sequences:
     input:
-        "results/antismash/{sample}"
+        "results/metallophore_rescue/{sample}.best_reference.tsv"
     output:
-        "results/metallophore_rescue/{sample}.assembly_parsed.tsv"
+        "results/metallophore_rescue/{sample}.reference_sequences.fna"
     log:
-        "logs/parse_antismash_assembly_{sample}.log"
+        "logs/fetch_reference_sequences_{sample}.log"
+    conda:
+        "envs/python.yml"
+    shell:
+        "python {CFG_DIR}/scripts/fetch_reference_sequences.py --input {input} --out {output} > {log} 2>&1"
 
-# 3. Run FeGenie (optional branch)
-rule fegenie_scan:
+# ---------------------------------------------------------------------------
+# 7️⃣ Confirmation antiSMASH + FeGenie pass on rescued reference
+# ---------------------------------------------------------------------------
+rule antismash_confirm:
     input:
-        assembly=ASSEMBLY_FP / "megahit" / "{sample}_asm" / "final.contigs.fa",
+        "results/metallophore_rescue/{sample}.reference_sequences.fna"
     output:
-        "results/metallophore_rescue/{sample}.fegenie.tsv"
+        directory("results/metallophore_rescue/antismash_confirm/{sample}")
     log:
-        "logs/fegenie_{sample}.log"
+        "logs/antismash_confirm_{sample}.log"
+    threads: 32
+    params:
+        db = Cfg["sbx_metallophore_rescue"]["antismash"]["db"]
+    conda:
+        "envs/antismash.yml"
+    shell:
+        r"""
+        antismash \
+          --databases {params.db} \
+          --taxon bacteria \
+          --genefinding-tool prodigal-m \
+          --cb-knownclusters --cc-mibig --tfbs --fimo --no-enable-genefunctions \
+          -c {threads} \
+          {input} > {log} 2>&1
+        """
 
-# 4. Select contigs for rescue (merge AntiSMASH + FeGenie evidence)
-rule select_rescue_candidates:
+rule fegenie_confirm:
     input:
-        antismash="results/metallophore_rescue/{sample}.assembly_parsed.tsv",
-        fegenie="results/metallophore_rescue/{sample}.fegenie.tsv"
+        "results/metallophore_rescue/{sample}.reference_sequences.fna"
     output:
-        "results/metallophore_rescue/{sample}.rescue_candidates.fasta"
+        "results/metallophore_rescue/{sample}.fegenie_confirm.tsv"
     log:
-        "logs/select_rescue_candidates_{sample}.log"
+        "logs/fegenie_confirm_{sample}.log"
+    conda:
+        "envs/fegenie.yml"
+    params:
+        stringency = "medium"
+    shell:
+        r"""
+        FeGenie.py -bin_dir $(dirname {input}) \
+                   -bin_ext fna \
+                   -out results/metallophore_rescue/fegenie_confirm_{wildcards.sample} \
+                   -stringent {params.stringency} \
+                   > {log} 2>&1
+        mv results/metallophore_rescue/fegenie_confirm_{wildcards.sample}/FeGenie_results_summary.txt {output}
+        """
 
-# 5. Align candidate contigs to UHGG
-rule align_uhgg:
+# ---------------------------------------------------------------------------
+# 8️⃣ Integrate confirmation evidence (final metallophore call)
+# ---------------------------------------------------------------------------
+rule integrate_results:
     input:
-        contigs="results/metallophore_rescue/{sample}.rescue_candidates.fasta",
-        db=Cfg["sbx_metallophore_rescue"]["references"]["uhgg_mmi"]
+        triage  = "results/metallophore_rescue/{sample}.candidates.tsv",
+        bestref = "results/metallophore_rescue/{sample}.best_reference.tsv",
+        antismash_confirm = directory("results/metallophore_rescue/antismash_confirm/{sample}"),
+        fegenie_confirm   = "results/metallophore_rescue/{sample}.fegenie_confirm.tsv"
     output:
-        "results/metallophore_rescue/{sample}.uhgg.paf"
+        "results/metallophore_rescue/{sample}.metallophore_calls.tsv"
     log:
-        "logs/align_uhgg_{sample}.log"
+        "logs/integrate_results_{sample}.log"
+    conda:
+        "envs/python.yml"
+    shell:
+        r"""
+        python {CFG_DIR}/scripts/integrate_confirmations.py \
+            --triage {input.triage} \
+            --bestref {input.bestref} \
+            --antismash {input.antismash_confirm} \
+            --fegenie {input.fegenie_confirm} \
+            --out {output} > {log} 2>&1
+        """
 
-# 6. Parse alignments
-rule parse_alignments:
-    input:
-        "results/metallophore_rescue/{sample}.uhgg.paf"
-    output:
-        "results/metallophore_rescue/{sample}.uhgg_best.tsv"
-    log:
-        "logs/parse_alignments_{sample}.log"
-
-# 7. Run antiSMASH on rescued MAG regions
-rule run_antismash_mag:
-    input:
-        "results/metallophore_rescue/{sample}.uhgg_best.tsv"
-    output:
-        directory("results/metallophore_rescue/antismash_mag/{sample}")
-    log:
-        "logs/run_antismash_mag_{sample}.log"
-
-# 8. Parse MAG antiSMASH results for validation
-rule parse_antismash_mag:
-    input:
-        antismash="results/metallophore_rescue/antismash_mag/{sample}"
-    output:
-        "results/metallophore_rescue/{sample}.validated.tsv"
-    log:
-        "logs/parse_antismash_mag_{sample}.log"
 ###############################################################################
 # End of sbx_metallophore_rescue.smk
 ###############################################################################
