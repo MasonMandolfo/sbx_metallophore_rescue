@@ -1,9 +1,9 @@
 sbx_metallophore_rescue:
   antismash:
-    db: /work/dsamuelson/databases/antismash_db
+    db: /work/dsamuelson/mmandolfo/metallophore_sunbeam_extension_test/test_ref.mmi
   references:
-    refseq: /work/dsamuelson/databases/refseq_complete.fna
-    gtdb: /work/dsamuelson/databases/gtdb_reps.fna
+    refseq: /work/dsamuelson/mmandolfo/metallophore_sunbeam_extension_test/test_ref.mmi
+    gtdb: /work/dsamuelson/mmandolfo/metallophore_sunbeam_extension_test/test_ref.mmi
   thresholds:
     min_align_frac: 0.5
   fegenie:
