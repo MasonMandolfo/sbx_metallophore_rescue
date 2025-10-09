@@ -224,7 +224,7 @@ rule integrate_results:
     input:
         triage  = "results/metallophore_rescue/{sample}.candidates.tsv",
         bestref = "results/metallophore_rescue/{sample}.best_reference.tsv",
-        antismash_confirm = directory("results/metallophore_rescue/antismash_confirm/{sample}"),
+        antismash_confirm = "results/metallophore_rescue/antismash_confirm/{sample}",
         fegenie_confirm   = "results/metallophore_rescue/{sample}.fegenie_confirm.tsv"
     output:
         "results/metallophore_rescue/{sample}.metallophore_calls.tsv"
