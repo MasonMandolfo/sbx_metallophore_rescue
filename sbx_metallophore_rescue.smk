@@ -131,7 +131,7 @@ rule triage_candidates:
 rule rescue_by_reference:
     input:
         contigs = "results/metallophore_rescue/{sample}.candidates.fna",
-        bin_map = BINNING_FP / "contig_to_bin.tsv",
+        bin_map = "qc/{sample}/refined/{sample}.magscot.refined.contig_to_bin.out",
         ref_db  = Cfg["sbx_metallophore_rescue"]["references"]["refseq"]
     output:
         besthits = "results/metallophore_rescue/{sample}.best_reference.tsv",
